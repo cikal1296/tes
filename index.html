@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat — PT Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .message-ai { background: #f3f4f6; }
+        .message-you { background: black; color: white; margin-left: auto; }
+    </style>
+</head>
+<body class="bg-white text-black min-h-screen">
+    <div class="max-w-3xl mx-auto p-4">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6 p-4 border-b">
+            <h1 class="text-2xl font-bold">🤖 AI Chat by Cikal</h1>
+            <button onclick="newChat()" class="bg-black text-white px-4 py-2 rounded hover:bg-gray-800">
+                + New Chat
+            </button>
+        </div>
+
+        <!-- Chat Container -->
+        <div id="chat" class="space-y-4 mb-6 min-h-[60vh] overflow-y-auto p-2"></div>
+
+        <!-- Input Area -->
+        <div class="border-t pt-4">
+            <div class="flex gap-2">
+                <input type="text" 
+                       id="userInput" 
+                       placeholder="Tanya apa saja..."
+                       class="flex-1 p-3 border rounded focus:outline-none focus:ring-2 focus:ring-black"
+                       onkeypress="if(event.key=='Enter') sendMessage()">
+                <button onclick="sendMessage()" 
+                        id="sendBtn"
+                        class="px-6 py-3 bg-black text-white rounded font-bold hover:bg-gray-800">
+                    Kirim
+                </button>
+            </div>
+            
+            <p class="text-gray-500 text-sm mt-2 text-center">
+                Powered by Gemini AI • Free tier Vercel
+            </p>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl">
+            <div class="w-12 h-12 border-4 border-black border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p class="mt-4 text-center font-semibold">Thinking...</p>
+        </div>
+    </div>
+
+<script>
+let chatHistory = [];
+
+function addMessage(text, sender) {
+    const chatDiv = document.getElementById('chat');
+    const msgDiv = document.createElement('div');
+    
+    msgDiv.className = `p-4 rounded-lg max-w-[80%] ${sender === 'ai' ? 'message-ai' : 'message-you'}`;
+    msgDiv.textContent = text;
+    
+    chatDiv.appendChild(msgDiv);
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+}
+
+async function sendMessage() {
+    const input = document.getElementById('userInput');
+    const text = input.value.trim();
+    
+    if (!text) return;
+    
+    // Tampilkan pesan user
+    addMessage(text, 'you');
+    chatHistory.push({ role: 'user', content: text });
+    
+    // Clear input
+    input.value = '';
+    input.disabled = true;
+    document.getElementById('sendBtn').disabled = true;
+    document.getElementById('loading').classList.remove('hidden');
+    
+    try {
+        // Kirim ke API route kita
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: text,
+                history: chatHistory.slice(-5) // Kirim 5 pesan terakhir sebagai context
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Tampilkan response AI
+        addMessage(data.reply, 'ai');
+        chatHistory.push({ role: 'assistant', content: data.reply });
+        
+    } catch (error) {
+        console.error('Error:', error);
+        addMessage(`Error: ${error.message}`, 'ai');
+    }
+    
+    // Enable input kembali
+    input.disabled = false;
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('loading').classList.add('hidden');
+    input.focus();
+}
+
+function newChat() {
+    if (confirm('Buat chat baru?')) {
+        chatHistory = [];
+        document.getElementById('chat').innerHTML = '';
+    }
+}
+
+// Enter to send
+document.getElementById('userInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+</script>
+</body>
+</html>
